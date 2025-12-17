@@ -1,7 +1,3 @@
-"use client";
-
-import { useState, useEffect } from "react";
-
 interface Story {
   id: number;
   title: string;
@@ -37,75 +33,44 @@ function getSiteDomain(url?: string): string {
   }
 }
 
-export default function Home() {
-  const [storyIds, setStoryIds] = useState<number[]>([]);
-  const [stories, setStories] = useState<Story[]>([]);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+async function fetchStories(
+  page: number
+): Promise<{ stories: Story[]; totalStories: number }> {
+  const response = await fetch(`${HN_API_BASE}/topstories.json`, {
+    next: { revalidate: 60 }, // Cache for 60 seconds
+  });
+  const storyIds: number[] = await response.json();
 
-  // Fetch all story IDs on mount
-  useEffect(() => {
-    async function fetchStoryIds() {
-      try {
-        const response = await fetch(`${HN_API_BASE}/topstories.json`);
-        const ids: number[] = await response.json();
-        setStoryIds(ids);
-      } catch (error) {
-        console.error("Failed to fetch story IDs:", error);
-      }
-    }
-    fetchStoryIds();
-  }, []);
+  const startIndex = (page - 1) * STORIES_PER_PAGE;
+  const endIndex = startIndex + STORIES_PER_PAGE;
+  const idsToFetch = storyIds.slice(startIndex, endIndex);
 
-  // Fetch stories for current page when storyIds or page changes
-  useEffect(() => {
-    if (storyIds.length === 0) return;
+  const storyPromises = idsToFetch.map(async (id) => {
+    const res = await fetch(`${HN_API_BASE}/item/${id}.json`, {
+      next: { revalidate: 60 },
+    });
+    return res.json();
+  });
 
-    async function fetchStories() {
-      const isFirstPage = page === 1;
-      if (isFirstPage) {
-        setLoading(true);
-      } else {
-        setLoadingMore(true);
-      }
+  const fetchedStories = await Promise.all(storyPromises);
+  const validStories = fetchedStories.filter(
+    (story) => story && !story.deleted && !story.dead
+  );
 
-      try {
-        const startIndex = (page - 1) * STORIES_PER_PAGE;
-        const endIndex = startIndex + STORIES_PER_PAGE;
-        const idsToFetch = storyIds.slice(startIndex, endIndex);
+  return { stories: validStories, totalStories: storyIds.length };
+}
 
-        const storyPromises = idsToFetch.map(async (id) => {
-          const response = await fetch(`${HN_API_BASE}/item/${id}.json`);
-          return response.json();
-        });
+interface PageProps {
+  searchParams: Promise<{ p?: string }>;
+}
 
-        const fetchedStories = await Promise.all(storyPromises);
-        const validStories = fetchedStories.filter(
-          (story) => story && !story.deleted && !story.dead
-        );
+export default async function Home({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const page = Math.max(1, parseInt(params.p || "1", 10));
+  const { stories, totalStories } = await fetchStories(page);
 
-        if (isFirstPage) {
-          setStories(validStories);
-        } else {
-          setStories((prev) => [...prev, ...validStories]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch stories:", error);
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
-    }
-
-    fetchStories();
-  }, [storyIds, page]);
-
-  const hasMore = page * STORIES_PER_PAGE < storyIds.length;
-
-  const handleLoadMore = () => {
-    setPage((prev) => prev + 1);
-  };
+  const hasMore = page * STORIES_PER_PAGE < totalStories;
+  const startRank = (page - 1) * STORIES_PER_PAGE + 1;
 
   return (
     <html lang="en" data-op="news">
@@ -178,143 +143,130 @@ export default function Home() {
               <tr style={{ height: "10px" }}></tr>
               <tr id="bigbox">
                 <td>
-                  {loading ? (
-                    <div style={{ padding: "20px", color: "#828282" }}>
-                      Loading stories...
-                    </div>
-                  ) : (
-                    <table border={0} cellPadding={0} cellSpacing={0}>
-                      <tbody>
-                        {stories.map((story, index) => {
-                          const site = getSiteDomain(story.url);
-                          return (
-                            <tr key={story.id}>
-                              <td colSpan={2}>
-                                <table
-                                  border={0}
-                                  cellPadding={0}
-                                  cellSpacing={0}
-                                  width="100%"
-                                >
-                                  <tbody>
-                                    <tr
-                                      className="athing submission"
-                                      id={String(story.id)}
+                  <table border={0} cellPadding={0} cellSpacing={0}>
+                    <tbody>
+                      {stories.map((story, index) => {
+                        const site = getSiteDomain(story.url);
+                        return (
+                          <tr key={story.id}>
+                            <td colSpan={2}>
+                              <table
+                                border={0}
+                                cellPadding={0}
+                                cellSpacing={0}
+                                width="100%"
+                              >
+                                <tbody>
+                                  <tr
+                                    className="athing submission"
+                                    id={String(story.id)}
+                                  >
+                                    <td
+                                      align="right"
+                                      valign="top"
+                                      className="title rank-cell"
                                     >
-                                      <td
-                                        align="right"
-                                        valign="top"
-                                        className="title rank-cell"
-                                      >
-                                        <span className="rank">
-                                          {index + 1}.
-                                        </span>
-                                      </td>
-                                      <td className="title">
-                                        <span className="titleline">
-                                          <a
-                                            href={
-                                              story.url ||
-                                              `https://news.ycombinator.com/item?id=${story.id}`
-                                            }
-                                          >
-                                            {story.title}
-                                          </a>
-                                          {site && (
-                                            <span className="sitebit comhead">
-                                              {" "}
-                                              (
-                                              <a
-                                                href={`https://news.ycombinator.com/from?site=${site}`}
-                                              >
-                                                <span className="sitestr">
-                                                  {site}
-                                                </span>
-                                              </a>
-                                              )
-                                            </span>
-                                          )}
-                                        </span>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td></td>
-                                      <td className="subtext">
-                                        <span className="subline">
-                                          <span
-                                            className="score"
-                                            id={`score_${story.id}`}
-                                          >
-                                            {story.score} points
-                                          </span>{" "}
-                                          by{" "}
-                                          <a
-                                            href={`https://news.ycombinator.com/user?id=${story.by}`}
-                                            className="hnuser"
-                                          >
-                                            {story.by}
-                                          </a>{" "}
-                                          <span className="age">
+                                      <span className="rank">
+                                        {startRank + index}.
+                                      </span>
+                                    </td>
+                                    <td className="title">
+                                      <span className="titleline">
+                                        <a
+                                          href={
+                                            story.url ||
+                                            `https://news.ycombinator.com/item?id=${story.id}`
+                                          }
+                                        >
+                                          {story.title}
+                                        </a>
+                                        {site && (
+                                          <span className="sitebit comhead">
+                                            {" "}
+                                            (
                                             <a
-                                              href={`https://news.ycombinator.com/item?id=${story.id}`}
+                                              href={`https://news.ycombinator.com/from?site=${site}`}
                                             >
-                                              {getTimeAgo(story.time)}
+                                              <span className="sitestr">
+                                                {site}
+                                              </span>
                                             </a>
+                                            )
                                           </span>
-                                          <span id={`unv_${story.id}`}></span> |{" "}
-                                          <a
-                                            href={`https://news.ycombinator.com/hide?id=${story.id}&goto=news`}
-                                          >
-                                            hide
-                                          </a>{" "}
-                                          |{" "}
+                                        )}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  <tr>
+                                    <td></td>
+                                    <td className="subtext">
+                                      <span className="subline">
+                                        <span
+                                          className="score"
+                                          id={`score_${story.id}`}
+                                        >
+                                          {story.score} points
+                                        </span>{" "}
+                                        by{" "}
+                                        <a
+                                          href={`https://news.ycombinator.com/user?id=${story.by}`}
+                                          className="hnuser"
+                                        >
+                                          {story.by}
+                                        </a>{" "}
+                                        <span className="age">
                                           <a
                                             href={`https://news.ycombinator.com/item?id=${story.id}`}
                                           >
-                                            {story.descendants ?? 0}
-                                            &nbsp;comments
+                                            {getTimeAgo(story.time)}
                                           </a>
                                         </span>
-                                      </td>
-                                    </tr>
-                                    <tr
-                                      className="spacer"
-                                      style={{ height: "5px" }}
-                                    ></tr>
-                                  </tbody>
-                                </table>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        {hasMore && (
-                          <tr className="morespace" style={{ height: "10px" }}>
-                            <td colSpan={2}></td>
-                          </tr>
-                        )}
-                        {hasMore && (
-                          <tr>
-                            <td colSpan={2} style={{ paddingLeft: "30px" }}>
-                              <a
-                                href="#"
-                                className="morelink"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handleLoadMore();
-                                }}
-                                style={{
-                                  color: "#828282",
-                                  cursor: loadingMore ? "wait" : "pointer",
-                                }}
-                              >
-                                {loadingMore ? "Loading..." : "More"}
-                              </a>
+                                        <span id={`unv_${story.id}`}></span> |{" "}
+                                        <a
+                                          href={`https://news.ycombinator.com/hide?id=${story.id}&goto=news`}
+                                        >
+                                          hide
+                                        </a>{" "}
+                                        |{" "}
+                                        <a
+                                          href={`https://news.ycombinator.com/item?id=${story.id}`}
+                                        >
+                                          {story.descendants ?? 0}
+                                          &nbsp;comments
+                                        </a>
+                                      </span>
+                                    </td>
+                                  </tr>
+                                  <tr
+                                    className="spacer"
+                                    style={{ height: "5px" }}
+                                  ></tr>
+                                </tbody>
+                              </table>
                             </td>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  )}
+                        );
+                      })}
+                      {hasMore && (
+                        <tr className="morespace" style={{ height: "10px" }}>
+                          <td colSpan={2}></td>
+                        </tr>
+                      )}
+                      {hasMore && (
+                        <tr>
+                          <td colSpan={2} style={{ paddingLeft: "30px" }}>
+                            <a
+                              href={`?p=${page + 1}`}
+                              className="morelink"
+                              style={{ color: "#828282" }}
+                            >
+                              More
+                            </a>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </td>
               </tr>
             </tbody>
