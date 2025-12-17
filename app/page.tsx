@@ -9,7 +9,7 @@ interface Story {
   type: string;
 }
 
-const STORIES_PER_PAGE = 30;
+const STORIES_PER_PAGE = 90;
 const HN_API_BASE = "https://hacker-news.firebaseio.com/v0";
 
 function getTimeAgo(timestamp: number): string {
@@ -31,6 +31,20 @@ function getSiteDomain(url?: string): string {
   } catch {
     return "";
   }
+}
+
+function getScoreHighlightStyle(score: number): React.CSSProperties {
+  // Bucket scores by 50 points (0-49, 50-99, 100-149, etc.)
+  const bucket = Math.floor(score / 50);
+  // Cap at 10 buckets (500+ points all get max intensity)
+  const cappedBucket = Math.min(bucket, 10);
+  // Orange with varying opacity based on bucket (0.05 to 0.5 range)
+  const opacity = 0.05 + cappedBucket * 0.045;
+  return {
+    backgroundColor: `rgba(255, 102, 0, ${opacity})`,
+    padding: "1px 4px",
+    borderRadius: "3px",
+  };
 }
 
 async function fetchStories(
@@ -177,6 +191,9 @@ export default async function Home({ searchParams }: PageProps) {
                                             story.url ||
                                             `https://news.ycombinator.com/item?id=${story.id}`
                                           }
+                                          style={getScoreHighlightStyle(
+                                            story.score
+                                          )}
                                         >
                                           {story.title}
                                         </a>
