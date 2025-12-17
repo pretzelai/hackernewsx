@@ -1,3 +1,5 @@
+import { Analytics } from "@vercel/analytics/next";
+
 interface Story {
   id: number;
   title: string;
@@ -289,6 +291,7 @@ export default async function Home({ searchParams }: PageProps) {
             </tbody>
           </table>
         </center>
+        <Analytics />
       </body>
     </html>
   );
