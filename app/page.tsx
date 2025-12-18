@@ -1,4 +1,5 @@
 import { Analytics } from "@vercel/analytics/next";
+import Image from "next/image";
 
 interface Story {
   id: number;
@@ -128,8 +129,8 @@ export default async function Home({ searchParams }: PageProps) {
                     <tbody>
                       <tr>
                         <td style={{ width: "25px", paddingRight: "4px" }}>
-                          <a href="https://news.ycombinator.com/">
-                            <img
+                          <a href="https://hackernewsx.com/">
+                            <Image
                               src="y18.svg"
                               width="24"
                               height="24"
@@ -145,7 +146,7 @@ export default async function Home({ searchParams }: PageProps) {
                         <td style={{ lineHeight: "12pt", height: "10px" }}>
                           <span className="pagetop">
                             <b className="hnname">
-                              <a href="https://news.ycombinator.com/news">
+                              <a href="https://hackernewsx.com/">
                                 Hacker News X
                               </a>
                             </b>
