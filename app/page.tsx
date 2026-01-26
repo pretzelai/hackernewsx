@@ -15,6 +15,17 @@ interface Story {
 const STORIES_PER_PAGE = 90;
 const HN_API_BASE = "https://hacker-news.firebaseio.com/v0";
 
+type StoryType = "top" | "new" | "best" | "ask" | "show" | "job";
+
+const STORY_ENDPOINTS: Record<StoryType, string> = {
+  top: "topstories.json",
+  new: "newstories.json",
+  best: "beststories.json",
+  ask: "askstories.json",
+  show: "showstories.json",
+  job: "jobstories.json",
+};
+
 function getTimeAgo(timestamp: number): string {
   const now = Math.floor(Date.now() / 1000);
   const diff = now - timestamp;
@@ -51,9 +62,11 @@ function getScoreHighlightStyle(score: number): React.CSSProperties {
 }
 
 async function fetchStories(
-  page: number
+  page: number,
+  storyType: StoryType = "top"
 ): Promise<{ stories: Story[]; totalStories: number }> {
-  const response = await fetch(`${HN_API_BASE}/topstories.json`, {
+  const endpoint = STORY_ENDPOINTS[storyType];
+  const response = await fetch(`${HN_API_BASE}/${endpoint}`, {
     next: { revalidate: 60 }, // Cache for 60 seconds
   });
   const storyIds: number[] = await response.json();
@@ -78,13 +91,17 @@ async function fetchStories(
 }
 
 interface PageProps {
-  searchParams: Promise<{ p?: string }>;
+  searchParams: Promise<{ p?: string; type?: string }>;
 }
 
 export default async function Home({ searchParams }: PageProps) {
   const params = await searchParams;
   const page = Math.max(1, parseInt(params.p || "1", 10));
-  const { stories, totalStories } = await fetchStories(page);
+  const typeParam = params.type || "top";
+  const storyType: StoryType = Object.keys(STORY_ENDPOINTS).includes(typeParam)
+    ? (typeParam as StoryType)
+    : "top";
+  const { stories, totalStories } = await fetchStories(page, storyType);
 
   const hasMore = page * STORIES_PER_PAGE < totalStories;
   const startRank = (page - 1) * STORIES_PER_PAGE + 1;
@@ -103,7 +120,11 @@ export default async function Home({ searchParams }: PageProps) {
           title="RSS"
           href="https://news.ycombinator.com/rss"
         />
-        <title>Hacker News</title>
+        <title>
+          {storyType === "top"
+            ? "Hacker News"
+            : `${storyType.charAt(0).toUpperCase() + storyType.slice(1)} | Hacker News`}
+        </title>
       </head>
       <body>
         <center>
@@ -150,6 +171,46 @@ export default async function Home({ searchParams }: PageProps) {
                                 Hacker News X
                               </a>
                             </b>
+                            {" | "}
+                            {storyType === "new" ? (
+                              <span className="topsel">
+                                <a href="/?type=new">new</a>
+                              </span>
+                            ) : (
+                              <a href="/?type=new">new</a>
+                            )}
+                            {" | "}
+                            {storyType === "best" ? (
+                              <span className="topsel">
+                                <a href="/?type=best">best</a>
+                              </span>
+                            ) : (
+                              <a href="/?type=best">best</a>
+                            )}
+                            {" | "}
+                            {storyType === "ask" ? (
+                              <span className="topsel">
+                                <a href="/?type=ask">ask</a>
+                              </span>
+                            ) : (
+                              <a href="/?type=ask">ask</a>
+                            )}
+                            {" | "}
+                            {storyType === "show" ? (
+                              <span className="topsel">
+                                <a href="/?type=show">show</a>
+                              </span>
+                            ) : (
+                              <a href="/?type=show">show</a>
+                            )}
+                            {" | "}
+                            {storyType === "job" ? (
+                              <span className="topsel">
+                                <a href="/?type=job">jobs</a>
+                              </span>
+                            ) : (
+                              <a href="/?type=job">jobs</a>
+                            )}
                           </span>
                         </td>
                       </tr>
@@ -276,7 +337,7 @@ export default async function Home({ searchParams }: PageProps) {
                         <tr>
                           <td colSpan={2} style={{ paddingLeft: "30px" }}>
                             <a
-                              href={`?p=${page + 1}`}
+                              href={`?type=${storyType}&p=${page + 1}`}
                               className="morelink"
                               style={{ color: "#828282" }}
                             >
