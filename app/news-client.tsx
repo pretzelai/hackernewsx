@@ -324,15 +324,23 @@ export default function NewsClient({
                       <Link href="/?type=show">show</Link>
                     )}
                     {" | "}
-                    {storyType === "job" ? (
-                      <span className="topsel">
-                        <Link href="/?type=job">jobs</Link>
-                      </span>
-                    ) : (
-                      <Link href="/?type=job">jobs</Link>
-                    )}
-                  </span>
-                </td>
+                     {storyType === "job" ? (
+                       <span className="topsel">
+                         <Link href="/?type=job">jobs</Link>
+                       </span>
+                     ) : (
+                       <Link href="/?type=job">jobs</Link>
+                     )}
+                     {" | "}
+                     <a
+                       href="https://github.com/pretzelai/hackernewsx"
+                       target="_blank"
+                       rel="noreferrer"
+                     >
+                       Github
+                     </a>
+                   </span>
+                 </td>
                 <td className="search-nav-cell">
                   <input
                     type="search"
