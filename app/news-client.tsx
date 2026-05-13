@@ -39,6 +39,7 @@ interface NewsClientProps {
 }
 
 const SEARCH_API_BASE = "https://hn.algolia.com/api/v1/search";
+const SEARCH_BY_DATE_API_BASE = "https://hn.algolia.com/api/v1/search_by_date";
 const SEARCH_DEBOUNCE_MS = 250;
 const SEARCH_RESULTS_PER_PAGE = 30;
 
@@ -192,6 +193,7 @@ export default function NewsClient({
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Story[]>([]);
   const [totalSearchHits, setTotalSearchHits] = useState(0);
+  const [orderByRecent, setOrderByRecent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -225,8 +227,9 @@ export default function NewsClient({
       tags: getSearchTags(storyType),
       hitsPerPage: String(SEARCH_RESULTS_PER_PAGE),
     });
+    const searchApiBase = orderByRecent ? SEARCH_BY_DATE_API_BASE : SEARCH_API_BASE;
 
-    fetch(`${SEARCH_API_BASE}?${searchParams.toString()}`, {
+    fetch(`${searchApiBase}?${searchParams.toString()}`, {
       signal: controller.signal,
     })
       .then(async (response) => {
@@ -261,7 +264,7 @@ export default function NewsClient({
       });
 
     return () => controller.abort();
-  }, [debouncedQuery, storyType]);
+  }, [debouncedQuery, orderByRecent, storyType]);
 
   const trimmedQuery = query.trim();
   const isSearchMode = trimmedQuery.length > 0;
@@ -376,6 +379,19 @@ export default function NewsClient({
                       <>
                         Found {new Intl.NumberFormat().format(totalSearchHits)} {resultLabel}
                         {` for “${debouncedQuery}”`}
+                        {" "}
+                        <button
+                          type="button"
+                          className="search-sort-button"
+                          aria-pressed={orderByRecent}
+                          onClick={() => {
+                            setOrderByRecent((current) => !current);
+                            setIsLoading(true);
+                            setError("");
+                          }}
+                        >
+                          {orderByRecent ? "Most recent first ✓" : "Most recent first"}
+                        </button>
                       </>
                     ) : (
                       <>Searching {resultLabel}…</>
