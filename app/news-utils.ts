@@ -25,6 +25,30 @@ export const STORY_ENDPOINTS: Record<StoryType, string> = {
   job: "jobstories.json",
 };
 
+const SHORT_MONTHS = [
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DEC",
+];
+
+function formatStoryDate(timestamp: number): string {
+  const date = new Date(timestamp * 1000);
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const month = SHORT_MONTHS[date.getUTCMonth()];
+  const year = date.getUTCFullYear();
+
+  return `${day}-${month}-${year}`;
+}
+
 export function getTimeAgo(
   timestamp: number,
   now = Math.floor(Date.now() / 1000)
@@ -35,7 +59,7 @@ export function getTimeAgo(
   if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
   if (diff < 2592000) return `${Math.floor(diff / 86400)} days ago`;
-  return `${Math.floor(diff / 2592000)} months ago`;
+  return `${Math.floor(diff / 2592000)} months ago (${formatStoryDate(timestamp)})`;
 }
 
 export function getSiteDomain(url?: string): string {

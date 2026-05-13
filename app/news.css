@@ -60,6 +60,21 @@ a:visited { color:#828282; text-decoration:none; }
   padding: 0 0 8px 30px;
 }
 
+.search-sort-button {
+  border: 0;
+  background: none;
+  color: #828282;
+  cursor: pointer;
+  font-family: Verdana, Geneva, sans-serif;
+  font-size: 7pt;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.search-sort-button[aria-pressed="true"] {
+  color: #000000;
+}
+
 .comment a:link, .comment a:visited { text-decoration: underline; }
 .noshow { display: none; }
 .nosee { visibility: hidden; pointer-events: none; cursor: default }
