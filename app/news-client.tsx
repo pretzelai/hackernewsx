@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import type { Story, StoryType } from "./news-utils";
@@ -26,6 +26,12 @@ interface SearchHit {
 interface SearchResponse {
   hits: SearchHit[];
   nbHits: number;
+}
+
+interface StoriesResponse {
+  stories: Story[];
+  page: number;
+  hasMore: boolean;
 }
 
 interface NewsClientProps {
@@ -196,6 +202,12 @@ export default function NewsClient({
   const [orderByRecent, setOrderByRecent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [feedStories, setFeedStories] = useState(stories);
+  const [nextPage, setNextPage] = useState(page + 1);
+  const [feedHasMore, setFeedHasMore] = useState(hasMore);
+  const [isFeedLoading, setIsFeedLoading] = useState(false);
+  const [feedError, setFeedError] = useState("");
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const nextQuery = query.trim();
@@ -269,9 +281,65 @@ export default function NewsClient({
   const trimmedQuery = query.trim();
   const isSearchMode = trimmedQuery.length > 0;
   const isPendingSearch = isSearchMode && trimmedQuery !== debouncedQuery;
+
+  const loadMore = useCallback(async () => {
+    if (isFeedLoading || !feedHasMore || isSearchMode) {
+      return;
+    }
+
+    setIsFeedLoading(true);
+    setFeedError("");
+
+    try {
+      const response = await fetch(
+        `/api/stories?type=${encodeURIComponent(storyType)}&page=${nextPage}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Loading stories failed with status ${response.status}`);
+      }
+
+      const data = (await response.json()) as StoriesResponse;
+      setFeedStories((current) => [...current, ...data.stories]);
+      setNextPage(data.page + 1);
+      setFeedHasMore(data.hasMore);
+    } catch (fetchError: unknown) {
+      console.error(fetchError);
+      setFeedError("Couldn’t load more stories.");
+    } finally {
+      setIsFeedLoading(false);
+    }
+  }, [feedHasMore, isFeedLoading, isSearchMode, nextPage, storyType]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (
+      !sentinel ||
+      !feedHasMore ||
+      isFeedLoading ||
+      feedError ||
+      isSearchMode
+    ) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [feedError, feedHasMore, isFeedLoading, isSearchMode, loadMore]);
+
   const displayedStories = useMemo(
-    () => (isSearchMode ? (isPendingSearch ? [] : searchResults) : stories),
-    [isPendingSearch, isSearchMode, searchResults, stories]
+    () =>
+      isSearchMode ? (isPendingSearch ? [] : searchResults) : feedStories,
+    [feedStories, isPendingSearch, isSearchMode, searchResults]
   );
   const resultLabel = getStoryTypeLabel(storyType);
 
@@ -414,21 +482,23 @@ export default function NewsClient({
                 currentTime={currentTime}
               />
 
-              {!isSearchMode && hasMore && (
-                <tr className="morespace" style={{ height: "10px" }}>
-                  <td colSpan={2}></td>
-                </tr>
-              )}
-              {!isSearchMode && hasMore && (
+              {!isSearchMode && (
                 <tr>
-                  <td colSpan={2} style={{ paddingLeft: "30px" }}>
-                    <Link
-                      href={`?type=${storyType}&p=${page + 1}`}
-                      className="morelink"
-                      style={{ color: "#828282" }}
-                    >
-                      More
-                    </Link>
+                  <td colSpan={2} className="infinite-scroll-status">
+                    <div
+                      ref={sentinelRef}
+                      className="infinite-scroll-sentinel"
+                    />
+                    {isFeedLoading && <span>Loading more stories…</span>}
+                    {feedError && (
+                      <span>
+                        {feedError}{" "}
+                        <button type="button" onClick={() => void loadMore()}>
+                          Try again
+                        </button>
+                      </span>
+                    )}
+                    {!feedHasMore && <span>You’ve reached the end.</span>}
                   </td>
                 </tr>
               )}

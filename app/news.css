@@ -75,6 +75,24 @@ a:visited { color:#828282; text-decoration:none; }
   color: #000000;
 }
 
+.infinite-scroll-status {
+  height: 42px;
+  padding-left: 30px;
+  color: #828282;
+}
+
+.infinite-scroll-sentinel { height: 1px; }
+
+.infinite-scroll-status button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #828282;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .comment a:link, .comment a:visited { text-decoration: underline; }
 .noshow { display: none; }
 .nosee { visibility: hidden; pointer-events: none; cursor: default }

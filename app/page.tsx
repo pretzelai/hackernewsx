@@ -1,42 +1,8 @@
 import { Analytics } from "@vercel/analytics/next";
 import Image from "next/image";
 import NewsClient from "./news-client";
-import type { Story, StoryType } from "./news-utils";
-import {
-  HN_API_BASE,
-  STORIES_PER_PAGE,
-  STORY_ENDPOINTS,
-} from "./news-utils";
-
-async function fetchStories(
-  page: number,
-  storyType: StoryType = "top"
-): Promise<{ stories: Story[]; totalStories: number; fetchedAt: number }> {
-  const endpoint = STORY_ENDPOINTS[storyType];
-  const fetchedAt = Math.floor(Date.now() / 1000);
-  const response = await fetch(`${HN_API_BASE}/${endpoint}`, {
-    next: { revalidate: 60 }, // Cache for 60 seconds
-  });
-  const storyIds: number[] = await response.json();
-
-  const startIndex = (page - 1) * STORIES_PER_PAGE;
-  const endIndex = startIndex + STORIES_PER_PAGE;
-  const idsToFetch = storyIds.slice(startIndex, endIndex);
-
-  const storyPromises = idsToFetch.map(async (id) => {
-    const res = await fetch(`${HN_API_BASE}/item/${id}.json`, {
-      next: { revalidate: 60 },
-    });
-    return res.json();
-  });
-
-  const fetchedStories = await Promise.all(storyPromises);
-  const validStories = fetchedStories.filter(
-    (story) => story && !story.deleted && !story.dead
-  );
-
-  return { stories: validStories, totalStories: storyIds.length, fetchedAt };
-}
+import { fetchStories, isStoryType } from "./lib/hacker-news";
+import { STORIES_PER_PAGE } from "./news-utils";
 
 interface PageProps {
   searchParams: Promise<{ p?: string; type?: string }>;
@@ -44,12 +10,14 @@ interface PageProps {
 
 export default async function Home({ searchParams }: PageProps) {
   const params = await searchParams;
-  const page = Math.max(1, parseInt(params.p || "1", 10));
+  const parsedPage = Number.parseInt(params.p || "1", 10);
+  const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const typeParam = params.type || "top";
-  const storyType: StoryType = Object.keys(STORY_ENDPOINTS).includes(typeParam)
-    ? (typeParam as StoryType)
-    : "top";
-  const { stories, totalStories, fetchedAt } = await fetchStories(page, storyType);
+  const storyType = isStoryType(typeParam) ? typeParam : "top";
+  const { stories, totalStories, fetchedAt } = await fetchStories(
+    page,
+    storyType
+  );
 
   const hasMore = page * STORIES_PER_PAGE < totalStories;
   const startRank = (page - 1) * STORIES_PER_PAGE + 1;
@@ -86,6 +54,7 @@ export default async function Home({ searchParams }: PageProps) {
           >
             <tbody>
               <NewsClient
+                key={`${storyType}-${page}`}
                 storyType={storyType}
                 page={page}
                 stories={stories}
